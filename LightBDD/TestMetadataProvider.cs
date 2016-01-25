@@ -339,6 +339,11 @@ namespace LightBDD
             }
             return -1;
         }
+
+        /// <summary>
+        /// Returns true if given method is scenario method.
+        /// </summary>
+        public abstract bool IsScenarioMethod(MethodBase method);
     }
 
     [DebuggerStepThrough]

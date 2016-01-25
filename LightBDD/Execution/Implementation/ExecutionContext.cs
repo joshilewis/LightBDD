@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 using LightBDD.Notification;
 
 namespace LightBDD.Execution.Implementation
@@ -33,27 +32,6 @@ namespace LightBDD.Execution.Implementation
             get
             {
                 return LightBDDSynchronizationContext.Current.ExecutionContext;
-            }
-        }
-    }
-
-    internal class LightBDDSynchronizationContext : SynchronizationContext
-    {
-        public ExecutionContext ExecutionContext { get; private set; }
-
-        public LightBDDSynchronizationContext(ExecutionContext executionContext)
-        {
-            ExecutionContext = executionContext;
-        }
-
-        public new static LightBDDSynchronizationContext Current
-        {
-            get
-            {
-                var ctx = SynchronizationContext.Current as LightBDDSynchronizationContext;
-                if(ctx==null)
-                    throw new InvalidOperationException("Current thread is not executing any scenarios. Please ensure that ExecutionContext is accessed from a running scenario and SynchronizationContext.Current is preserved.");
-                return ctx;
             }
         }
     }

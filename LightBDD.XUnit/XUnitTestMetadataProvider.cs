@@ -32,5 +32,13 @@ namespace LightBDD
         {
             return Enumerable.Empty<string>();
         }
+
+        /// <summary>
+        /// Returns true if given method is scenario method.
+        /// </summary>
+        public override bool IsScenarioMethod(MethodBase method)
+        {
+            return method.GetCustomAttributes(typeof(ScenarioAttribute), true).Any();
+        }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 
@@ -31,6 +32,14 @@ namespace LightBDD
         protected override IEnumerable<string> GetImplementationSpecificScenarioCategories(MemberInfo member)
         {
             return ExtractAttributePropertyValues<CategoryAttribute>(member, a => a.Name);
+        }
+
+        /// <summary>
+        /// Returns true if given method is scenario method.
+        /// </summary>
+        public override bool IsScenarioMethod(MethodBase method)
+        {
+            return method.GetCustomAttributes(typeof(TestAttribute), true).Any();
         }
     }
 }

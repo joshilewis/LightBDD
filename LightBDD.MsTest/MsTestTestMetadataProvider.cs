@@ -32,5 +32,10 @@ namespace LightBDD
         {
             return ExtractAttributes<TestCategoryAttribute>(member).SelectMany(a => a.TestCategories);
         }
+
+        public override bool IsScenarioMethod(MethodBase method)
+        {
+            return method.GetCustomAttributes(typeof(TestMethodAttribute), true).Any();
+        }
     }
 }

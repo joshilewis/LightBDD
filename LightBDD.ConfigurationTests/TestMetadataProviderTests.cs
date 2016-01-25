@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 
@@ -18,6 +19,11 @@ namespace LightBDD.ConfigurationTests
             protected override IEnumerable<string> GetImplementationSpecificScenarioCategories(MemberInfo member)
             {
                 throw new NotImplementedException();
+            }
+
+            public override bool IsScenarioMethod(MethodBase method)
+            {
+                return method.GetCustomAttributes(typeof (TestAttribute), true).Any();
             }
         }
 

@@ -557,9 +557,16 @@ namespace LightBDD
         protected abstract ResultStatus MapExceptionToStatus(Type exceptionType);
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static MethodBase GetScenarioMethod()
+        private MethodBase GetScenarioMethod()
         {
-            return new StackTrace().GetFrame(2).GetMethod();
+            var stackTrace = new StackTrace();
+            for (int i = 2; i < stackTrace.FrameCount; ++i)
+            {
+                var method = stackTrace.GetFrame(i).GetMethod();
+                if (_metadataProvider.IsScenarioMethod(method))
+                    return method;
+            }
+            throw new InvalidOperationException("No scenario method has been found on stack");
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using LightBDD.Notification;
 using LightBDD.Results;
@@ -83,7 +84,7 @@ namespace LightBDD.NUnit.UnitTests
         [Test]
         public async Task Should_run_async_tests()
         {
-            await _subject.NewScenario().RunAsync(async_step_1, async_step_2_with_assetion);
+            await _subject.NewScenario().RunAsync(async_step_1, async_step_2_with_assertion);
 
             var result = _subject.Result.Scenarios.Single();
             Assert.That(result.Name, Is.EqualTo("Should run async tests"));
@@ -94,14 +95,15 @@ namespace LightBDD.NUnit.UnitTests
         }
 
          bool step_1_finished = false;
+
         public async Task async_step_1()
         {
-            await TaskEx.Yield();
+            await Task.Yield();
             step_1_finished = true;
         }
-        public async Task async_step_2_with_assetion()
+        public async Task async_step_2_with_assertion()
         {
-            await TaskEx.Yield();
+            await Task.Yield();
             Assert.True(step_1_finished);
         }
     }

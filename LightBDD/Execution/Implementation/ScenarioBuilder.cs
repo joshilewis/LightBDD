@@ -36,7 +36,7 @@ namespace LightBDD.Execution.Implementation
         public void Run(params Expression<Action<StepType>>[] steps)
         {
             _executor.Execute(_scenario, _stepsConverter.Convert(steps))
-                .GetAwaiter().GetResult();
+                .Await();
         }
 
         public IScenarioBuilder<TContext> WithContext<TContext>() where TContext : new()
@@ -52,7 +52,7 @@ namespace LightBDD.Execution.Implementation
         public void Run(params Action[] steps)
         {
             _executor.Execute(_scenario, _stepsConverter.Convert(steps))
-                .GetAwaiter().GetResult();
+                .Await();
         }
 
         public Task RunAsync(params Func<Task>[] steps)
@@ -85,13 +85,13 @@ namespace LightBDD.Execution.Implementation
         public void Run(params Expression<Action<StepType, TContext>>[] steps)
         {
             _executor.Execute(_scenario, _stepsConverter.Convert(_context, steps))
-                .GetAwaiter().GetResult();
+                .Await();
         }
 
         public void Run(params Action<TContext>[] steps)
         {
             _executor.Execute(_scenario, _stepsConverter.Convert(_context, steps))
-                .GetAwaiter().GetResult();
+                .Await();
         }
 
         public Task RunAsync(params Func<TContext, Task>[] steps)

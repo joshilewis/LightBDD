@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using LightBDD.Execution.Exceptions;
 using LightBDD.Results;
 using LightBDD.Results.Implementation;
 
@@ -22,30 +21,18 @@ namespace LightBDD.Execution.Implementation
             _result = new StepResult(stepNumber, new StepName(stepName, stepTypeName), ResultStatus.NotRun);
         }
 
-        public async Task Invoke(ExecutionContext context)
+        public Task Invoke(ExecutionContext context)
         {
-            try
-            {
-                context.CurrentStep = this;
-                context.ProgressNotifier.NotifyStepStart(_result.Name, _result.Number, context.TotalStepCount);
-                _result.SetExecutionStart(DateTimeOffset.UtcNow);
-                await MeasuredInvoke();
-                _result.SetStatus(ResultStatus.Passed);
-            }
-            catch (StepBypassException e)
-            {
-                _result.SetStatus(ResultStatus.Bypassed, e.Message);
-            }
-            catch (Exception e)
-            {
-                _result.SetStatus(_mapping(e.GetType()), e.Message);
-                throw;
-            }
-            finally
+            context.CurrentStep = this;
+            context.ProgressNotifier.NotifyStepStart(_result.Name, _result.Number, context.TotalStepCount);
+            _result.SetExecutionStart(DateTimeOffset.UtcNow);
+
+            return MeasuredInvoke().ContinueWith(t =>
             {
                 context.CurrentStep = null;
                 context.ProgressNotifier.NotifyStepFinished(_result, context.TotalStepCount);
-            }
+                return StepHelper.CaptureStepFinalStatus(t, _result, _mapping);
+            }).Unwrap();
         }
 
         public void Comment(ExecutionContext context, string comment)
@@ -54,19 +41,17 @@ namespace LightBDD.Execution.Implementation
             context.ProgressNotifier.NotifyStepComment(_result.Number, context.TotalStepCount, comment);
         }
 
-        private async Task MeasuredInvoke()
+        private Task MeasuredInvoke()
         {
             var watch = new Stopwatch();
-            try
-            {
-                _result.SetExecutionStart(DateTimeOffset.UtcNow);
-                watch.Start();
-                await _action();
-            }
-            finally
+            _result.SetExecutionStart(DateTimeOffset.UtcNow);
+            watch.Start();
+
+            return _action().ContinueWith(t =>
             {
                 _result.SetExecutionTime(watch.Elapsed);
-            }
+                return t;
+            }).Unwrap();
         }
 
         public override string ToString()

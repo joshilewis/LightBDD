@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using LightBDD.Execution.Implementation.Parameters;
 using LightBDD.Results;
@@ -99,7 +100,7 @@ namespace LightBDD.Execution.Implementation
         {
             var stepName = _metadataProvider.GetStepName(stepMethod);
             var stepTypeName = _metadataProvider.GetStepTypeNameFromFormattedStepName(ref stepName);
-            Func<Task> asyncStep = () => { step(); return TaskEx.FromResult(0); };
+            Func<Task> asyncStep = () => ToTask(step);
             return new Step(asyncStep, conversionContext.NormalizeStepTypeName(stepTypeName), stepName, conversionContext.NextStepNumber(), _mapExceptionToStatus);
         }
 
@@ -117,7 +118,7 @@ namespace LightBDD.Execution.Implementation
             return CreateParameterizedStep((object)null, stepExpression, conversionContext, stepTypeParameter, contextParameter);
         }
 
-        private IStep CreateParameterizedAsyncStep(Expression<Func<StepType,Task>> stepExpression, ConversionContext conversionContext)
+        private IStep CreateParameterizedAsyncStep(Expression<Func<StepType, Task>> stepExpression, ConversionContext conversionContext)
         {
             var stepTypeParameter = stepExpression.Parameters[0];
             var contextParameter = Expression.Parameter(typeof(object));
@@ -131,7 +132,7 @@ namespace LightBDD.Execution.Implementation
             return CreateParameterizedStep(context, stepExpression, conversionContext, stepTypeParameter, contextParameter);
         }
 
-        private IStep CreateParameterizedAsyncStep<TContext>(TContext context, Expression<Func<StepType, TContext,Task>> stepExpression, ConversionContext conversionContext)
+        private IStep CreateParameterizedAsyncStep<TContext>(TContext context, Expression<Func<StepType, TContext, Task>> stepExpression, ConversionContext conversionContext)
         {
             var stepTypeParameter = stepExpression.Parameters[0];
             var contextParameter = stepExpression.Parameters[1];
@@ -152,7 +153,7 @@ namespace LightBDD.Execution.Implementation
             var methodParameterInfo = methodExpression.Method.GetParameters();
             var arguments = methodExpression.Arguments.Select((arg, index) => CompileArgument<TContext>(arg, stepTypeParameter, contextParameter, methodParameterInfo[index])).ToArray();
 
-            Func<StepType, TContext, object[], Task> asyncAction = (stepType, ctx, args) => { action(stepType, ctx, args); return TaskEx.FromResult(0); };
+            Func<StepType, TContext, object[], Task> asyncAction = (stepType, ctx, args) => ToTask(action, stepType, ctx, args);
             return new ParameterizedStep<TContext>(methodExpression.Method, context, asyncAction, arguments, stepTypeName, stepNameFormat, conversionContext.NextStepNumber(), _mapExceptionToStatus);
         }
 
@@ -192,10 +193,10 @@ namespace LightBDD.Execution.Implementation
             return Expression.Lambda<Action<StepType, TContext, object[]>>(methodCallExpression, stepTypeParameter, contextParameter, param).Compile();
         }
 
-        private static Func<StepType, TContext, object[],Task> CompileAsyncAction<TContext>(MethodCallExpression methodCall, ParameterExpression stepTypeParameter, ParameterExpression contextParameter)
+        private static Func<StepType, TContext, object[], Task> CompileAsyncAction<TContext>(MethodCallExpression methodCall, ParameterExpression stepTypeParameter, ParameterExpression contextParameter)
         {
             var param = Expression.Parameter(typeof(object[]), "args");
-            var returnLabel = Expression.Label(typeof (Task));
+            var returnLabel = Expression.Label(typeof(Task));
             var args = methodCall.Arguments.Select((arg, index) => Expression.Convert(Expression.ArrayAccess(param, Expression.Constant(index)), arg.Type));
 
             var block = Expression.Block(
@@ -213,6 +214,20 @@ namespace LightBDD.Execution.Implementation
             if (methodExpression.Method.GetParameters().Any(p => p.IsOut || p.ParameterType.IsByRef))
                 throw new ArgumentException("Steps accepting ref or out parameters are not supported: " + stepExpression);
             return methodExpression;
+        }
+
+        private static Task ToTask(Action step)
+        {
+            var synchronizationContext = SynchronizationContext.Current;
+            return Task.Factory.StartNew(() => SynchronizationContextHelper.WithSynchronizationContext(synchronizationContext, step));
+        }
+
+        private static Task ToTask<TContext>(Action<StepType, TContext, object[]> action, StepType stepType, TContext ctx, object[] args)
+        {
+            var synchronizationContext = SynchronizationContext.Current;
+            return Task.Factory.StartNew(() =>
+                SynchronizationContextHelper.WithSynchronizationContext(synchronizationContext,
+                    () => action(stepType, ctx, args)));
         }
     }
 }

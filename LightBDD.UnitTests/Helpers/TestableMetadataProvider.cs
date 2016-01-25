@@ -29,5 +29,10 @@ namespace LightBDD.UnitTests.Helpers
         {
             return ExtractAttributePropertyValues<CategoryAttribute>(member, a => a.Name);
         }
+
+        public override bool IsScenarioMethod(MethodBase method)
+        {
+            return method.GetCustomAttributes(typeof(TestAttribute), true).Any();
+        }
     }
 }

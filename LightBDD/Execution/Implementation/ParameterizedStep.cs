@@ -24,7 +24,7 @@ namespace LightBDD.Execution.Implementation
         public IStepResult GetResult() { return _result; }
 
         [DebuggerStepThrough]
-        public ParameterizedStep(MethodInfo stepMethod, TContext context, Func<StepType, TContext, object[],Task> action, IStepParameter<TContext>[] parameters, string formattedStepTypeName, string stepNameFormat, int stepNumber, Func<Type, ResultStatus> mapping)
+        public ParameterizedStep(MethodInfo stepMethod, TContext context, Func<StepType, TContext, object[], Task> action, IStepParameter<TContext>[] parameters, string formattedStepTypeName, string stepNameFormat, int stepNumber, Func<Type, ResultStatus> mapping)
         {
             _stepMethod = stepMethod;
             _context = context;
@@ -38,27 +38,16 @@ namespace LightBDD.Execution.Implementation
         }
 
         [DebuggerStepThrough]
-        public async Task Invoke(ExecutionContext context)
+        public Task Invoke(ExecutionContext context)
         {
-            try
-            {
-                context.CurrentStep = this;
-                await InvokeStep(context);
-            }
-            catch (StepBypassException e)
-            {
-                _result.SetStatus(ResultStatus.Bypassed, e.Message);
-            }
-            catch (Exception e)
-            {
-                _result.SetStatus(_mapping(e.GetType()), e.Message);
-                throw;
-            }
-            finally
+            context.CurrentStep = this;
+
+            return InvokeStep(context).ContinueWith(t =>
             {
                 context.CurrentStep = null;
                 context.ProgressNotifier.NotifyStepFinished(_result, context.TotalStepCount);
-            }
+                return StepHelper.CaptureStepFinalStatus(t, _result, _mapping);
+            }).Unwrap();
         }
 
         public void Comment(ExecutionContext context, string comment)
@@ -67,37 +56,42 @@ namespace LightBDD.Execution.Implementation
             context.ProgressNotifier.NotifyStepComment(_result.Number, context.TotalStepCount, comment);
         }
 
-        private async Task InvokeStep(ExecutionContext context)
+        private Task InvokeStep(ExecutionContext context)
         {
             EvaluateParameters();
-            await InvokeStepWithEvaluatedParameters(context);
+            return InvokeStepWithEvaluatedParameters(context);
         }
 
         [DebuggerStepThrough]
-        private async Task InvokeStepWithEvaluatedParameters(ExecutionContext context)
+        private Task InvokeStepWithEvaluatedParameters(ExecutionContext context)
         {
             _result = new StepResult(_stepNumber, new StepName(_stepNameFormat, _formattedStepTypeName, GetParameterDetails()), ResultStatus.NotRun);
 
             context.ProgressNotifier.NotifyStepStart(_result.Name, _stepNumber, context.TotalStepCount);
-            await MeasuredInvoke(_parameters.Select(p => p.Value).ToArray());
-
-            _result.SetStatus(ResultStatus.Passed);
+            return MeasuredInvoke(_parameters.Select(p => p.Value).ToArray())
+                .ContinueWith(t =>
+                {
+                    if (t.Status == TaskStatus.RanToCompletion)
+                        _result.SetStatus(ResultStatus.Passed);
+                    return t;
+                })
+                .Unwrap();
         }
 
         [DebuggerStepThrough]
-        private async Task MeasuredInvoke(object[] paramValues)
+        private Task MeasuredInvoke(object[] paramValues)
         {
             var watch = new Stopwatch();
-            try
-            {
-                _result.SetExecutionStart(DateTimeOffset.UtcNow);
-                watch.Start();
-                await _action(StepType.Default, _context, paramValues);
-            }
-            finally
-            {
-                _result.SetExecutionTime(watch.Elapsed);
-            }
+
+            _result.SetExecutionStart(DateTimeOffset.UtcNow);
+            watch.Start();
+            return _action(StepType.Default, _context, paramValues)
+                .ContinueWith(t =>
+                {
+                    _result.SetExecutionTime(watch.Elapsed);
+                    return t;
+                })
+                .Unwrap();
         }
 
         private void EvaluateParameters()

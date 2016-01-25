@@ -21,7 +21,7 @@ namespace LightBDD.Execution.Implementation
         }
 
         [DebuggerStepThrough]
-        public async Task Execute(Scenario scenario, IEnumerable<IStep> steps)
+        public Task Execute(Scenario scenario, IEnumerable<IStep> steps)
         {
             _progressNotifier.NotifyScenarioStart(scenario.Name, scenario.Label);
             var stepsToExecute = PrepareSteps(scenario, steps);
@@ -29,25 +29,26 @@ namespace LightBDD.Execution.Implementation
             var watch = new Stopwatch();
             var scenarioStartTime = DateTimeOffset.UtcNow;
             var lastContext = SynchronizationContext.Current;
-            try
-            {
-                SynchronizationContext.SetSynchronizationContext(new LightBDDSynchronizationContext(new ExecutionContext(_progressNotifier, stepsToExecute.Length)));
-                watch.Start();
-                await ExecuteSteps(stepsToExecute);
-            }
-            finally
-            {
-                watch.Stop();
-                SynchronizationContext.SetSynchronizationContext(lastContext);
-                var result = new ScenarioResult(scenario.Name, stepsToExecute.Select(s => s.GetResult()), scenario.Label, scenario.Categories)
-                .SetExecutionStart(scenarioStartTime)
-                .SetExecutionTime(watch.Elapsed);
+            var synchronizationContext = new LightBDDSynchronizationContext(lastContext, new ExecutionContext(_progressNotifier, stepsToExecute.Length));
 
-                if (ScenarioExecuted != null)
-                    ScenarioExecuted.Invoke(result);
+            watch.Start();
 
-                _progressNotifier.NotifyScenarioFinished(result);
-            }
+            return ExecuteSteps(synchronizationContext, stepsToExecute)
+                .ContinueWith(t =>
+                {
+                    watch.Stop();
+                    var result = new ScenarioResult(scenario.Name, stepsToExecute.Select(s => s.GetResult()), scenario.Label, scenario.Categories)
+                    .SetExecutionStart(scenarioStartTime)
+                    .SetExecutionTime(watch.Elapsed);
+
+                    if (ScenarioExecuted != null)
+                        ScenarioExecuted.Invoke(result);
+
+                    _progressNotifier.NotifyScenarioFinished(result);
+                    return t;
+                })
+                .Unwrap();
+
         }
 
         [DebuggerStepThrough]
@@ -70,10 +71,20 @@ namespace LightBDD.Execution.Implementation
             }
         }
 
-        private async Task ExecuteSteps(IStep[] stepsToExecute)
+        private Task ExecuteSteps(LightBDDSynchronizationContext synchronizationContext, IStep[] stepsToExecute)
         {
-            foreach (var step in stepsToExecute)
-               await step.Invoke(ExecutionContext.Instance);
+            return ExecuteStep(synchronizationContext, stepsToExecute, 0);
+        }
+
+        private Task ExecuteStep(LightBDDSynchronizationContext synchronizationContext, IStep[] stepsToExecute, int i)
+        {
+            if (i >= stepsToExecute.Length)
+                return TaskExtensions.CreateCompletedTask();
+
+            return SynchronizationContextHelper.WithSynchronizationContext(synchronizationContext, () =>
+             stepsToExecute[i].Invoke(synchronizationContext.ExecutionContext)
+                 .ContinueWith(t => (t.Status == TaskStatus.RanToCompletion) ? ExecuteStep(synchronizationContext, stepsToExecute, i + 1) : t)
+                 .Unwrap());
         }
     }
 }
