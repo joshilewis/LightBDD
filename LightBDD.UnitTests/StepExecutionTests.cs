@@ -25,7 +25,7 @@ namespace LightBDD.UnitTests
         public void Comment_should_throw_exception_if_used_outside_of_step()
         {
             var exception = Assert.Throws<InvalidOperationException>(() => StepExecution.Comment("some comment"));
-            Assert.That(exception.Message, Is.EqualTo("Current thread is not executing any scenarios. Please ensure that ExecutionContext is accessed from a thread running scenario."));
+            Assert.That(exception.Message, Is.EqualTo("Current thread is not executing any scenarios. Please ensure that ExecutionContext is accessed from a running scenario and SynchronizationContext.Current is preserved."));
         }
 
         [Test]

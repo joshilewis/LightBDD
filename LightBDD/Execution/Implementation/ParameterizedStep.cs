@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using LightBDD.Execution.Exceptions;
 using LightBDD.Execution.Implementation.Parameters;
 using LightBDD.Results;
@@ -13,7 +14,7 @@ namespace LightBDD.Execution.Implementation
     {
         private readonly MethodInfo _stepMethod;
         private readonly TContext _context;
-        private readonly Action<StepType, TContext, object[]> _action;
+        private readonly Func<StepType, TContext, object[], Task> _action;
         private readonly IStepParameter<TContext>[] _parameters;
         private readonly string _formattedStepTypeName;
         private readonly string _stepNameFormat;
@@ -23,7 +24,7 @@ namespace LightBDD.Execution.Implementation
         public IStepResult GetResult() { return _result; }
 
         [DebuggerStepThrough]
-        public ParameterizedStep(MethodInfo stepMethod, TContext context, Action<StepType, TContext, object[]> action, IStepParameter<TContext>[] parameters, string formattedStepTypeName, string stepNameFormat, int stepNumber, Func<Type, ResultStatus> mapping)
+        public ParameterizedStep(MethodInfo stepMethod, TContext context, Func<StepType, TContext, object[],Task> action, IStepParameter<TContext>[] parameters, string formattedStepTypeName, string stepNameFormat, int stepNumber, Func<Type, ResultStatus> mapping)
         {
             _stepMethod = stepMethod;
             _context = context;
@@ -37,12 +38,12 @@ namespace LightBDD.Execution.Implementation
         }
 
         [DebuggerStepThrough]
-        public void Invoke(ExecutionContext context)
+        public async Task Invoke(ExecutionContext context)
         {
             try
             {
                 context.CurrentStep = this;
-                InvokeStep(context);
+                await InvokeStep(context);
             }
             catch (StepBypassException e)
             {
@@ -66,32 +67,32 @@ namespace LightBDD.Execution.Implementation
             context.ProgressNotifier.NotifyStepComment(_result.Number, context.TotalStepCount, comment);
         }
 
-        private void InvokeStep(ExecutionContext context)
+        private async Task InvokeStep(ExecutionContext context)
         {
             EvaluateParameters();
-            InvokeStepWithEvaluatedParameters(context);
+            await InvokeStepWithEvaluatedParameters(context);
         }
 
         [DebuggerStepThrough]
-        private void InvokeStepWithEvaluatedParameters(ExecutionContext context)
+        private async Task InvokeStepWithEvaluatedParameters(ExecutionContext context)
         {
             _result = new StepResult(_stepNumber, new StepName(_stepNameFormat, _formattedStepTypeName, GetParameterDetails()), ResultStatus.NotRun);
 
             context.ProgressNotifier.NotifyStepStart(_result.Name, _stepNumber, context.TotalStepCount);
-            MeasuredInvoke(_parameters.Select(p => p.Value).ToArray());
+            await MeasuredInvoke(_parameters.Select(p => p.Value).ToArray());
 
             _result.SetStatus(ResultStatus.Passed);
         }
 
         [DebuggerStepThrough]
-        private void MeasuredInvoke(object[] paramValues)
+        private async Task MeasuredInvoke(object[] paramValues)
         {
             var watch = new Stopwatch();
             try
             {
                 _result.SetExecutionStart(DateTimeOffset.UtcNow);
                 watch.Start();
-                _action(StepType.Default, _context, paramValues);
+                await _action(StepType.Default, _context, paramValues);
             }
             finally
             {

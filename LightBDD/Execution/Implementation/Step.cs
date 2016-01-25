@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using LightBDD.Execution.Exceptions;
 using LightBDD.Results;
 using LightBDD.Results.Implementation;
@@ -9,26 +10,26 @@ namespace LightBDD.Execution.Implementation
     [DebuggerStepThrough]
     internal class Step : IStep
     {
-        private readonly Action _action;
+        private readonly Func<Task> _action;
         private readonly Func<Type, ResultStatus> _mapping;
         private readonly StepResult _result;
         public IStepResult GetResult() { return _result; }
 
-        public Step(Action action, string stepTypeName, string stepName, int stepNumber, Func<Type, ResultStatus> mapping)
+        public Step(Func<Task> action, string stepTypeName, string stepName, int stepNumber, Func<Type, ResultStatus> mapping)
         {
             _action = action;
             _mapping = mapping;
             _result = new StepResult(stepNumber, new StepName(stepName, stepTypeName), ResultStatus.NotRun);
         }
 
-        public void Invoke(ExecutionContext context)
+        public async Task Invoke(ExecutionContext context)
         {
             try
             {
                 context.CurrentStep = this;
                 context.ProgressNotifier.NotifyStepStart(_result.Name, _result.Number, context.TotalStepCount);
                 _result.SetExecutionStart(DateTimeOffset.UtcNow);
-                MeasuredInvoke();
+                await MeasuredInvoke();
                 _result.SetStatus(ResultStatus.Passed);
             }
             catch (StepBypassException e)
@@ -53,14 +54,14 @@ namespace LightBDD.Execution.Implementation
             context.ProgressNotifier.NotifyStepComment(_result.Number, context.TotalStepCount, comment);
         }
 
-        private void MeasuredInvoke()
+        private async Task MeasuredInvoke()
         {
             var watch = new Stopwatch();
             try
             {
                 _result.SetExecutionStart(DateTimeOffset.UtcNow);
                 watch.Start();
-                _action();
+                await _action();
             }
             finally
             {

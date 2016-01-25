@@ -1,12 +1,11 @@
 using System;
+using System.Threading;
 using LightBDD.Notification;
 
 namespace LightBDD.Execution.Implementation
 {
     internal class ExecutionContext
     {
-        [ThreadStatic]
-        private static ExecutionContext _instance;
         private IStep _currentStep;
 
         public ExecutionContext(IProgressNotifier progressNotifier, int totalStepCount)
@@ -33,11 +32,29 @@ namespace LightBDD.Execution.Implementation
         {
             get
             {
-                if (_instance == null)
-                    throw new InvalidOperationException("Current thread is not executing any scenarios. Please ensure that ExecutionContext is accessed from a thread running scenario.");
-                return _instance;
+                return LightBDDSynchronizationContext.Current.ExecutionContext;
             }
-            set { _instance = value; }
+        }
+    }
+
+    internal class LightBDDSynchronizationContext : SynchronizationContext
+    {
+        public ExecutionContext ExecutionContext { get; private set; }
+
+        public LightBDDSynchronizationContext(ExecutionContext executionContext)
+        {
+            ExecutionContext = executionContext;
+        }
+
+        public new static LightBDDSynchronizationContext Current
+        {
+            get
+            {
+                var ctx = SynchronizationContext.Current as LightBDDSynchronizationContext;
+                if(ctx==null)
+                    throw new InvalidOperationException("Current thread is not executing any scenarios. Please ensure that ExecutionContext is accessed from a running scenario and SynchronizationContext.Current is preserved.");
+                return ctx;
+            }
         }
     }
 }

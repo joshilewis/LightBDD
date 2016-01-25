@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 
 namespace LightBDD.Execution.Implementation
 {
@@ -34,7 +35,8 @@ namespace LightBDD.Execution.Implementation
 
         public void Run(params Expression<Action<StepType>>[] steps)
         {
-            _executor.Execute(_scenario, _stepsConverter.Convert(steps));
+            _executor.Execute(_scenario, _stepsConverter.Convert(steps))
+                .GetAwaiter().GetResult();
         }
 
         public IScenarioBuilder<TContext> WithContext<TContext>() where TContext : new()
@@ -49,7 +51,18 @@ namespace LightBDD.Execution.Implementation
 
         public void Run(params Action[] steps)
         {
-            _executor.Execute(_scenario, _stepsConverter.Convert(steps));
+            _executor.Execute(_scenario, _stepsConverter.Convert(steps))
+                .GetAwaiter().GetResult();
+        }
+
+        public Task RunAsync(params Func<Task>[] steps)
+        {
+            return _executor.Execute(_scenario, _stepsConverter.Convert(steps));
+        }
+
+        public Task RunAsync(params Expression<Func<StepType, Task>>[] steps)
+        {
+            return _executor.Execute(_scenario, _stepsConverter.Convert(steps));
         }
     }
 
@@ -71,12 +84,24 @@ namespace LightBDD.Execution.Implementation
 
         public void Run(params Expression<Action<StepType, TContext>>[] steps)
         {
-            _executor.Execute(_scenario, _stepsConverter.Convert(_context, steps));
+            _executor.Execute(_scenario, _stepsConverter.Convert(_context, steps))
+                .GetAwaiter().GetResult();
         }
 
         public void Run(params Action<TContext>[] steps)
         {
-            _executor.Execute(_scenario, _stepsConverter.Convert(_context, steps));
+            _executor.Execute(_scenario, _stepsConverter.Convert(_context, steps))
+                .GetAwaiter().GetResult();
+        }
+
+        public Task RunAsync(params Func<TContext, Task>[] steps)
+        {
+            return _executor.Execute(_scenario, _stepsConverter.Convert(_context, steps));
+        }
+
+        public Task RunAsync(params Expression<Func<StepType, TContext, Task>>[] steps)
+        {
+            return _executor.Execute(_scenario, _stepsConverter.Convert(_context, steps));
         }
     }
 }
