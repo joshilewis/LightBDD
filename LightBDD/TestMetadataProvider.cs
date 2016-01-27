@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -16,6 +17,12 @@ namespace LightBDD
     [DebuggerStepThrough]
     public abstract class TestMetadataProvider
     {
+        /// <summary>
+        /// Culture that is used for formatting metadata.
+        /// By default it is equal to the <c>CultureInfo.CurrentCulture</c> but can be reconfigured in lightbdd>formattingCulture config section in app.config or in TestMetadataProvider constructor.
+        /// </summary>
+        public CultureInfo Culture { get; private set; }
+
         /// <summary>
         /// Predefined step types. By default, it is: given, when, then, setup, and
         /// The predefined step types can be reconfigured in lightbdd>stepTypes>predefined config section in app.config or in TestMetadataProvider constructor.
@@ -74,6 +81,7 @@ namespace LightBDD
             var stepTypes = LightBDDConfiguration.GetConfiguration().StepTypes;
             PredefinedStepTypes = stepTypes.Predefined.Split(',').Select(t => t.Trim()).ToArray();
             RepeatedStepReplacement = stepTypes.RepeatedStepReplacement.Trim();
+            Culture = LightBDDConfiguration.GetConfiguration().FormattingCulture ?? CultureInfo.CurrentCulture;
         }
 
         /// <summary>
@@ -81,10 +89,12 @@ namespace LightBDD
         /// </summary>
         /// <param name="predefinedStepTypes">Predefined step types</param>
         /// <param name="repeatedStepReplacement">Repeated step replacement</param>
-        protected TestMetadataProvider(string[] predefinedStepTypes, string repeatedStepReplacement)
+        /// <param name="culture">Culture used for formatting metadata</param>
+        protected TestMetadataProvider(string[] predefinedStepTypes, string repeatedStepReplacement, CultureInfo culture)
         {
             PredefinedStepTypes = predefinedStepTypes;
             RepeatedStepReplacement = repeatedStepReplacement;
+            Culture = culture;
         }
 
         /// <summary>
@@ -299,10 +309,13 @@ namespace LightBDD
         /// </summary>
         public Func<object, string> GetStepParameterFormatter(ParameterInfo parameterInfo)
         {
-            Func<object, string> defaultFormatter = o => string.Format("{0}", o);
+            Func<object, string> defaultFormatter = o => string.Format(Culture, "{0}", o);
 
             var formatters = parameterInfo.GetCustomAttributes(typeof(ParameterFormatterAttribute), true)
                 .OfType<ParameterFormatterAttribute>().ToArray();
+
+            if (formatters.Length == 0)
+                return defaultFormatter;
 
             if (formatters.Length > 1)
                 throw new InvalidOperationException(string.Format(
@@ -310,9 +323,8 @@ namespace LightBDD
                     parameterInfo.Name,
                     string.Join(", ", formatters.Select(f => f.GetType().Name).OrderBy(n => n))));
 
-            return formatters.Length == 1
-                ? formatters[0].Format
-                : defaultFormatter;
+            formatters[0].Culture = Culture;
+            return formatters[0].Format;
         }
 
         private static ArgumentReplacement ToArgumentReplacement(string name, ParameterInfo parameterInfo, int argumentIndex)

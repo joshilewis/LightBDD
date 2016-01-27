@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 
 namespace LightBDD.Formatting.Parameters
 {
@@ -12,5 +13,9 @@ namespace LightBDD.Formatting.Parameters
         /// Formats given parameter.
         /// </summary>
         public abstract string Format(object parameter);
+        /// <summary>
+        /// Formatter culture.
+        /// </summary>
+        protected internal CultureInfo Culture { get; set; }
     }
 }

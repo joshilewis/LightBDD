@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
@@ -33,6 +34,7 @@ namespace LightBDD.ConfigurationTests
             var subject = new TestableTestMetadataProvider();
             Assert.That(subject.RepeatedStepReplacement, Is.EqualTo("and also"));
             Assert.That(subject.PredefinedStepTypes, Is.EquivalentTo(new[] { "call", "invoke", "exec" }));
+            Assert.That(subject.Culture, Is.EqualTo(CultureInfo.GetCultureInfo("en-CA")));
         }
     }
 }

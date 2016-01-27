@@ -23,7 +23,7 @@
         /// </summary>
         public override string Format(object parameter)
         {
-            return string.Format(_format, parameter);
+            return string.Format(Culture,_format, parameter);
         }
     }
 }

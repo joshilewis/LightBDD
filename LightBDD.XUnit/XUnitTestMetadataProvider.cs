@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using Xunit;
 
 namespace LightBDD
 {
@@ -38,7 +39,7 @@ namespace LightBDD
         /// </summary>
         public override bool IsScenarioMethod(MethodBase method)
         {
-            return method.GetCustomAttributes(typeof(ScenarioAttribute), true).Any();
+            return method.GetCustomAttributes(true).Any(a => a is ScenarioAttribute || a is TheoryAttribute || a is FactAttribute);
         }
     }
 }

@@ -1,4 +1,7 @@
-﻿using System.Linq;
+﻿using System;
+using System.Globalization;
+using System.Linq;
+using LightBDD.Formatting.Parameters;
 using LightBDD.UnitTests.Helpers;
 using NUnit.Framework;
 
@@ -124,7 +127,7 @@ namespace LightBDD.UnitTests
         [TestCase(" \r\n\t")]
         public void Should_disable_normalization_if_replacementString_is_empty(string repeatedStepReplacement)
         {
-            _subject = new TestableMetadataProvider(new[] { "given", "when", "then" }, repeatedStepReplacement);
+            _subject = new TestableMetadataProvider(new[] { "given", "when", "then" }, repeatedStepReplacement, CultureInfo.InvariantCulture);
             Assert.That(_subject.NormalizeStepTypeName("abc", "abc"), Is.EqualTo("abc"));
         }
 
@@ -135,12 +138,30 @@ namespace LightBDD.UnitTests
         [TestCase("then something", "", "then something")]
         public void Should_allow_to_reconfigure_GetStepTypeNameFromFormattedStepName(string formattedName, string expectedType, string expectedName)
         {
-            _subject = new TestableMetadataProvider(new[] { "call", "invoke" }, "");
+            _subject = new TestableMetadataProvider(new[] { "call", "invoke" }, "", CultureInfo.InvariantCulture);
 
             var type = _subject.GetStepTypeNameFromFormattedStepName(ref formattedName);
             Assert.That(type, Is.EqualTo(expectedType), "type");
             Assert.That(formattedName, Is.EqualTo(expectedName), "name");
         }
+
+        [Test]
+        [TestCase("en-US", "5.5", "May")]
+        [TestCase("pl-PL", "5,5", "maj")]
+        public void Should_allow_to_reconfigure_formatter_culture_of_GetStepParameterFormatter(string culture, string expectedDoubleText, string expectedDateText)
+        {
+            _subject = new TestableMetadataProvider(new string[0], "", CultureInfo.GetCultureInfo(culture));
+
+            var parameterInfos = GetType().GetMethod("TestMethod").GetParameters();
+
+            var doubleFormatter = _subject.GetStepParameterFormatter(parameterInfos[0]);
+            var dateFormatter = _subject.GetStepParameterFormatter(parameterInfos[1]);
+
+            Assert.That(doubleFormatter.Invoke(5.5), Is.EqualTo(expectedDoubleText));
+            Assert.That(dateFormatter.Invoke(new DateTime(2005, 05, 01)), Is.EqualTo(expectedDateText));
+        }
+
+        public void TestMethod(double param1, [Format("{0:MMMM}")]DateTime param2) { }
 
         [Test]
         public void Should_initialize_object_with_default_values()

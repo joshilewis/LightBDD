@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
@@ -12,8 +13,8 @@ namespace LightBDD.UnitTests.Helpers
         {
         }
 
-        public TestableMetadataProvider(string[] predefinedStepTypes, string repeatedStepReplacement)
-            : base(predefinedStepTypes, repeatedStepReplacement)
+        public TestableMetadataProvider(string[] predefinedStepTypes, string repeatedStepReplacement, CultureInfo culture)
+            : base(predefinedStepTypes, repeatedStepReplacement, culture)
         {
         }
 

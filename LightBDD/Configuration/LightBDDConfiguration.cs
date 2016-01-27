@@ -1,4 +1,5 @@
 ﻿using System.Configuration;
+using System.Globalization;
 
 namespace LightBDD.Configuration
 {
@@ -9,6 +10,7 @@ namespace LightBDD.Configuration
     {
         private const string SUMMARY_WRITERS_FIELD = "summaryWriters";
         private const string STEP_TYPES_FIELD = "stepTypes";
+        private const string FORMATTING_CULTURE_FIELD = "formattingCulture";
 
         public static LightBDDConfiguration GetConfiguration()
         {
@@ -30,6 +32,13 @@ namespace LightBDD.Configuration
         {
             get { return (StepTypesElement)this[STEP_TYPES_FIELD]; }
             set { this[STEP_TYPES_FIELD] = value; }
+        }
+
+        [ConfigurationProperty(FORMATTING_CULTURE_FIELD)]
+        public CultureInfo FormattingCulture
+        {
+            get { return (CultureInfo)this[FORMATTING_CULTURE_FIELD]; }
+            set { this[FORMATTING_CULTURE_FIELD] = value; }
         }
     }
 }
